@@ -1,0 +1,187 @@
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 1c1f826..eee72a5 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -1,13 +1,13 @@
+ ## $Id$
+ AUTOMAKE_OPTIONS=foreign no-dependencies
+ 
+-bin_PROGRAMS = snort
++noinst_LIBRARIES = libsnort.a
+ 
+ if BUILD_SNPRINTF
+ SNPRINTF_SOURCES = snprintf.c snprintf.h
+ endif
+ 
+-snort_SOURCES = cdefs.h \
++libsnort_a_SOURCES = cdefs.h \
+ event.h \
+ generators.h \
+ sf_protocols.h \
+@@ -62,20 +62,6 @@ rule_option_types.h \
+ sfdaq.c sfdaq.h \
+ idle_processing.c idle_processing.h idle_processing_funcs.h
+ 
+-snort_LDADD = output-plugins/libspo.a \
+-detection-plugins/libspd.a            \
+-dynamic-plugins/libdynamic.a            \
+-dynamic-output/plugins/liboutput.a      \
+-preprocessors/libspp.a                \
+-parser/libparser.a \
+-target-based/libtarget_based.a \
+-preprocessors/HttpInspect/libhttp_inspect.a \
+-preprocessors/Stream5/libstream5.a \
+-sfutil/libsfutil.a \
+-control/libsfcontrol.a \
+-file-process/libfileAPI.a \
+-file-process/libs/libfile.a
+-
+ if BUILD_DYNAMIC_EXAMPLES
+ EXAMPLES_DIR = dynamic-examples
+ endif
+@@ -85,9 +71,29 @@ SUBDIRS = sfutil win32 output-plugins detection-plugins dynamic-plugins preproce
+ 
+ INCLUDES = @INCLUDES@
+ 
++libsnort_a_LIBADD = $(wildcard output-plugins/*.o) \
++$(wildcard detection-plugins/*.o)            \
++$(wildcard dynamic-plugins/*.o)            \
++$(wildcard dynamic-output/plugins/*.o)      \
++$(wildcard dynamic-output/*/*.o)      \
++$(wildcard preprocessors/*.o)                \
++$(wildcard parser/*.o) \
++$(wildcard target-based/*.o) \
++$(wildcard preprocessors/HttpInspect/*/*.o) \
++$(wildcard preprocessors/Stream5/*.o) \
++$(wildcard sfutil/*.o) \
++$(wildcard control/*.o) \
++$(wildcard file-process/*.o) \
++$(wildcard file-process/libs/*.o)
++
++
+ if BUILD_SIDE_CHANNEL
+-snort_LDADD += \
+-side-channel/libsidechannel.a \
+-side-channel/plugins/libsscm.a
++libsnort_a_LIBADD += \
++$(wildcard side-channel/*.o) \
++$(wildcard side-channel/plugins/*.o)
+ SUBDIRS += side-channel
+ endif
++
++bin_PROGRAMS = snort
++snort_SOURCES = main.c
++snort_LDADD = libsnort.a
+diff --git a/src/main.c b/src/main.c
+new file mode 100644
+index 0000000..2f2eee2
+--- /dev/null
++++ b/src/main.c
+@@ -0,0 +1,43 @@
++extern int snort_argc;
++extern char **snort_argv;
++
++/*
++ *
++ * Function: main(int, char *)
++ *
++ * Purpose:  Handle program entry and exit, call main prog sections
++ *           This can handle both regular (command-line) style
++ *           startup, as well as Win32 Service style startup.
++ *
++ * Arguments: See command line args in README file
++ *
++ * Returns: 0 => normal exit, 1 => exit on error
++ *
++ */
++int main(int argc, char *argv[])
++{
++#if defined(WIN32) && defined(ENABLE_WIN32_SERVICE)
++    /* Do some sanity checking, because some people seem to forget to
++     * put spaces between their parameters
++     */
++    if ((argc > 1) &&
++        ((_stricmp(argv[1], (SERVICE_CMDLINE_PARAM SERVICE_INSTALL_CMDLINE_PARAM)) == 0) ||
++         (_stricmp(argv[1], (SERVICE_CMDLINE_PARAM SERVICE_UNINSTALL_CMDLINE_PARAM)) == 0) ||
++         (_stricmp(argv[1], (SERVICE_CMDLINE_PARAM SERVICE_SHOW_CMDLINE_PARAM)) == 0)))
++    {
++        FatalError("You must have a space after the '%s' command-line parameter\n",
++                   SERVICE_CMDLINE_PARAM);
++    }
++
++    /* If the first parameter is "/SERVICE", then start Snort as a Win32 service */
++    if((argc > 1) && (_stricmp(argv[1],SERVICE_CMDLINE_PARAM) == 0))
++    {
++        return SnortServiceMain(argc, argv);
++    }
++#endif /* WIN32 && ENABLE_WIN32_SERVICE */
++
++    snort_argc = argc;
++    snort_argv = argv;
++
++    return SnortMain(argc, argv);
++}
+diff --git a/src/snort.c b/src/snort.c
+index 1481d4f..74b3ec9 100644
+--- a/src/snort.c
++++ b/src/snort.c
+@@ -354,8 +354,8 @@ static SF_LIST *pcap_object_list = NULL;
+ static SF_QUEUE *pcap_queue = NULL;
+ static char* pcap_filter = NULL;
+ 
+-static int snort_argc = 0;
+-static char **snort_argv = NULL;
++int snort_argc = 0;
++char **snort_argv = NULL;
+ 
+ /* command line options for getopt */
+ static char *valid_options =
+@@ -764,47 +764,6 @@ static int InlineFailOpen (void)
+ 
+ /*
+  *
+- * Function: main(int, char *)
+- *
+- * Purpose:  Handle program entry and exit, call main prog sections
+- *           This can handle both regular (command-line) style
+- *           startup, as well as Win32 Service style startup.
+- *
+- * Arguments: See command line args in README file
+- *
+- * Returns: 0 => normal exit, 1 => exit on error
+- *
+- */
+-int main(int argc, char *argv[])
+-{
+-#if defined(WIN32) && defined(ENABLE_WIN32_SERVICE)
+-    /* Do some sanity checking, because some people seem to forget to
+-     * put spaces between their parameters
+-     */
+-    if ((argc > 1) &&
+-        ((_stricmp(argv[1], (SERVICE_CMDLINE_PARAM SERVICE_INSTALL_CMDLINE_PARAM)) == 0) ||
+-         (_stricmp(argv[1], (SERVICE_CMDLINE_PARAM SERVICE_UNINSTALL_CMDLINE_PARAM)) == 0) ||
+-         (_stricmp(argv[1], (SERVICE_CMDLINE_PARAM SERVICE_SHOW_CMDLINE_PARAM)) == 0)))
+-    {
+-        FatalError("You must have a space after the '%s' command-line parameter\n",
+-                   SERVICE_CMDLINE_PARAM);
+-    }
+-
+-    /* If the first parameter is "/SERVICE", then start Snort as a Win32 service */
+-    if((argc > 1) && (_stricmp(argv[1],SERVICE_CMDLINE_PARAM) == 0))
+-    {
+-        return SnortServiceMain(argc, argv);
+-    }
+-#endif /* WIN32 && ENABLE_WIN32_SERVICE */
+-
+-    snort_argc = argc;
+-    snort_argv = argv;
+-
+-    return SnortMain(argc, argv);
+-}
+-
+-/*
+- *
+  * Function: SnortMain(int, char *)
+  *
+  * Purpose:  The real place that the program handles entry and exit.  Called
+-- 
