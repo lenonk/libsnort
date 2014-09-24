@@ -876,6 +876,11 @@ void LibInitGlobals() {
     snort_argv = NULL;
 }
 
+void SnortLibFini() {
+    exit_signal = 1;
+
+    CleanExit(0);
+}
 /*
  *
  * Function: SnortLibInit(int, char *)
@@ -4975,7 +4980,7 @@ void FreeVarList(VarNode *head)
 
 void SnortInit(int argc, char **argv)
 {
-    InitSignals();
+    //InitSignals();
 
 #if defined(NOCOREFILE) && !defined(WIN32)
     SetNoCores();

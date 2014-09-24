@@ -14,5 +14,5 @@ Description: Snort dynamic preprocessors
 URL: www.snort.org
 Version: 2.9.6.2
 Libs: -L${libdir}/${package}/dynamic_preproc -lsf_dynamic_preproc
-Cflags: -I${includedir}/${package}/dynamic_preproc  -DSF_WCHAR -DTARGET_BASED -DPERF_PROFILING -DSNORT_RELOAD -DNO_NON_ETHER_DECODER -DNORMALIZER -DACTIVE_RESPONSE  -DSF_VISIBILITY -fvisibility=hidden 
+Cflags: -I${includedir}/${package}/dynamic_preproc  -DSF_WCHAR -DTARGET_BASED -DPERF_PROFILING -DSNORT_RELOAD -DNO_NON_ETHER_DECODER -DNORMALIZER -DACTIVE_RESPONSE  
 

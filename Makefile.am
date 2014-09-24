@@ -19,7 +19,7 @@ dist-hook:
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = snort.pc
 
-#AM_CFLAGS = "-fPIC -O3"
+AM_CFLAGS = "-fPIC -O3"
 AM_CPPFLAGS = "-fPIC -O3"
 AM_CXXFLAGS = "-fPIC -O3"
-AM_LDFLAGS = "-fPIC"
+AM_LDFLAGS = "-fPIC -O3"
